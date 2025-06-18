@@ -1,0 +1,13 @@
+node_modules
+package-lock.json
+yarn.lock
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+.DS_Store
+dist
+dist-ssr
+*.local
