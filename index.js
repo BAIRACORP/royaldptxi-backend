@@ -133,7 +133,7 @@ app.get('/api/drivers/get/:uid', (req, res) => {
     return res.status(400).json({ message: 'UID is required' });
   }
 
-  db.query('SELECT * FROM drivers WHERE id = ? LIMIT 1', [uid], (err, results) => {
+  db.query('SELECT * FROM drivers WHERE id = ?', [uid], (err, results) => {
     if (err) {
       console.error('❌ Database error:', err);
       return res.status(500).json({ message: 'Server error' });
@@ -387,28 +387,68 @@ app.get('/api/bills/get/:driverEmail', (req, res) => {
 });
 
 // Accept trip
+// app.put('/api/trips/:id/accept', (req, res) => {
+//   const tripId = req.params.id;
+//   const { driverEmail } = req.body;
+
+//   db.query('SELECT driverEmail FROM trips WHERE id = ?', [tripId], (err, results) => {
+//     if (err) {
+//       return handleDbError(res, err, 'Accepting trip');
+//     }
+
+//     let currentDrivers = results[0]?.driverEmail || '';
+//     let updatedDrivers = currentDrivers
+//       ? currentDrivers.split(',').includes(driverEmail)
+//         ? currentDrivers
+//         : currentDrivers + ',' + driverEmail
+//       : driverEmail;
+
+//     db.query(
+//       'UPDATE trips SET driverEmail = ?, status = ? WHERE id = ?',
+//       [updatedDrivers, 'accept', tripId],
+//       (err) => {
+//         if (err) {
+//           return handleDbError(res, err, 'Accepting trip');
+//         }
+
+//         res.status(200).json({ message: 'Trip accepted successfully' });
+//       }
+//     );
+//   });
+// });
+
 app.put('/api/trips/:id/accept', (req, res) => {
   const tripId = req.params.id;
   const { driverEmail } = req.body;
 
-  db.query('SELECT driverEmail FROM trips WHERE id = ?', [tripId], (err, results) => {
+  db.query('SELECT acceptedDrivers FROM trips WHERE id = ?', [tripId], (err, results) => {
     if (err) {
-      return handleDbError(res, err, 'Accepting trip');
+      return handleDbError(res, err, 'Fetching acceptedDrivers');
     }
 
-    let currentDrivers = results[0]?.driverEmail || '';
-    let updatedDrivers = currentDrivers
-      ? currentDrivers.split(',').includes(driverEmail)
-        ? currentDrivers
-        : currentDrivers + ',' + driverEmail
-      : driverEmail;
+    let currentAccepted = [];
+
+    if (results.length > 0 && results[0].acceptedDrivers) {
+      try {
+        currentAccepted = JSON.parse(results[0].acceptedDrivers);
+      } catch (parseErr) {
+        console.error('Error parsing acceptedDrivers JSON:', parseErr);
+      }
+    }
+
+    // Avoid duplicates
+    if (!currentAccepted.includes(driverEmail)) {
+      currentAccepted.push(driverEmail);
+    }
+
+    const updatedAcceptedDrivers = JSON.stringify(currentAccepted);
 
     db.query(
-      'UPDATE trips SET driverEmail = ?, status = ? WHERE id = ?',
-      [updatedDrivers, 'accept', tripId],
+      'UPDATE trips SET acceptedDrivers = ?, status = ? WHERE id = ?',
+      [updatedAcceptedDrivers, 'accept', tripId],
       (err) => {
         if (err) {
-          return handleDbError(res, err, 'Accepting trip');
+          return handleDbError(res, err, 'Updating acceptedDrivers');
         }
 
         res.status(200).json({ message: 'Trip accepted successfully' });
@@ -416,6 +456,7 @@ app.put('/api/trips/:id/accept', (req, res) => {
     );
   });
 });
+
 
 // Get accepted trips
 app.get('/api/trips/accepted/:driverEmail', (req, res) => {
